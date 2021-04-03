@@ -1,0 +1,53 @@
+import java.io.IOException;
+import java.util.*;
+
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.conf.*;
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.util.*;
+
+public class MarketEvaluation extends Configured implements Tool{
+  public static class MapClass extends MapReduceBase implements Mapper<LongWritable, Text, Text, Text>{
+    private Text location = new Text();
+    private Text rating = new Text();
+
+    @Override
+    public void map(LongWritable key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException{
+      String[] rows = value.toString().split(",");
+      if(rows.length > 28){		//Each row has 29 columns
+        String marketName = rows[0];
+	String website = rows[1];
+	String city = rows[2];
+        String state = rows[3];
+
+        int count = 0;			// Initialized with Zero
+	String evaluation = "Not Evaluated";
+	        
+        for (int col=4; col<=28; col++) //columns 4-28 contain data about what the market offers in 'Y' or 'N' format
+        {
+          if(rows[col].equals("Y"))
+            count++;
+        }
+
+        count=(count*100)/25; // There are 25 segments of market offerings, and it calculates %age of 'Y'
+    if (count > 59) {        // Assigning 60-100% as High Value Market
+        evaluation = "High";
+
+    } 
+    else if (count > 39 && count < 60) { //Assigning 40-59% as Medium Value Market
+	evaluation = "Medium";
+    } 
+    else if (count > 0 && count < 40) { // Assigning 1-39% as Low Value Market
+        evaluation = "Low";
+    } 
+    else if (count == 0 ) {
+        evaluation = "Zero";
+    } 
+
+        location.set(marketName + ", " + website + ", " + city + ", " + state + ", ");
+        rating.set(evaluation + "\t" + count);
+        output.collect(location, rating);
+      }
+    }
+  }
